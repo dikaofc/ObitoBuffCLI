@@ -1,0 +1,174 @@
+name: Release Obitobuff CLI
+
+# Publish a new Obitobuff release. Triggered by pushing a `v*` tag (e.g.
+# `git tag v0.1.0 && git push --tags`) or manually from the Actions tab by
+# entering a version number.
+#
+# Every release is a set of GitHub Release assets:
+#   obitobuff-{platform}.tar.gz          — compiled CLI binaries (auto-update payload)
+#   obitobuff-launcher-{version}.tgz     — npm launcher tarball (npm install -g)
+# The launcher checks `releases/latest` on startup and downloads the newest
+# binary automatically, so users always update to whatever this workflow
+# publishes.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  OBITOBUFF_MODE: 'true'
+  NEXT_PUBLIC_CB_ENVIRONMENT: prod
+  NEXT_PUBLIC_CODEBUFF_APP_URL: https://codebuff.com
+  NEXT_PUBLIC_SUPPORT_EMAIL: support@codebuff.com
+  NEXT_PUBLIC_POSTHOG_API_KEY: 'phc_placeholder'
+  NEXT_PUBLIC_POSTHOG_HOST_URL: https://us.i.posthog.com
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_placeholder'
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: https://billing.stripe.com
+  NEXT_PUBLIC_WEB_PORT: '3001'
+
+jobs:
+  version:
+    name: Compute version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - id: compute
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bun-target: bun-linux-x64
+            platform: linux
+            arch: x64
+            label: linux-x64
+          - os: ubuntu-latest
+            bun-target: bun-linux-x64-baseline
+            platform: linux
+            arch: x64
+            label: linux-x64-baseline
+          - os: ubuntu-latest
+            bun-target: bun-linux-arm64
+            platform: linux
+            arch: arm64
+            label: linux-arm64
+          - os: ubuntu-latest
+            bun-target: bun-windows-x64
+            platform: win32
+            arch: x64
+            label: win32-x64
+          - os: ubuntu-latest
+            bun-target: bun-windows-x64-baseline
+            platform: win32
+            arch: x64
+            label: win32-x64-baseline
+          - os: macos-latest
+            bun-target: bun-darwin-x64
+            platform: darwin
+            arch: x64
+            label: darwin-x64
+          - os: macos-latest
+            bun-target: bun-darwin-arm64
+            platform: darwin
+            arch: arm64
+            label: darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install
+      - name: Build binary
+        env:
+          OVERRIDE_TARGET: ${{ matrix.bun-target }}
+          OVERRIDE_PLATFORM: ${{ matrix.platform }}
+          OVERRIDE_ARCH: ${{ matrix.arch }}
+        run: bun cli/scripts/build-binary.ts obitobuff ${{ needs.version.outputs.version }}
+      - name: Package tarball
+        run: |
+          cd cli/bin
+          if [ "${{ matrix.platform }}" = "win32" ]; then BIN="obitobuff.exe"; else BIN="obitobuff"; fi
+          tar -czf "../../obitobuff-${{ matrix.label }}.tar.gz" "$BIN" tree-sitter.wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asset-${{ matrix.label }}
+          path: obitobuff-${{ matrix.label }}.tar.gz
+          if-no-files-found: error
+
+  package-launcher:
+    name: Package launcher
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install
+      - name: Set package version
+        run: |
+          node -e "const fs=require('fs');const p='obitobuff/cli/release/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version='${{ needs.version.outputs.version }}';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+      - name: Pack launcher tarball
+        run: npm pack ./obitobuff/cli/release
+      - name: Rename tarball
+        run: mv obitobuff-${{ needs.version.outputs.version }}.tgz obitobuff-launcher-${{ needs.version.outputs.version }}.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asset-launcher
+          path: obitobuff-launcher-*.tgz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: [version, build, package-launcher]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: asset-*
+          merge-multiple: true
+      - name: Verify assets
+        run: ls -la obitobuff-*
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Obitobuff CLI v${{ needs.version.outputs.version }}
+          body: |
+            ## Obitobuff CLI v${{ needs.version.outputs.version }}
+
+            Install or update:
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/dikaofc/ObitoBuffCLI/main/install.sh | bash
+            ```
+
+            Existing installs update automatically on next launch.
+
+            ### Assets
+            - `obitobuff-{platform}.tar.gz` — compiled CLI binaries
+            - `obitobuff-launcher-{version}.tgz` — npm launcher package
+          files: 'obitobuff-*'
+          generate_release_notes: true

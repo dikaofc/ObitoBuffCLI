@@ -1,0 +1,64 @@
+/**
+ * E2E test that verifies Obitobuff can read and use AGENTS.md from the project.
+ *
+ * Starts Obitobuff in tmux, creates an AGENTS.md file with a unique keyword,
+ * asks Obitobuff about that keyword, and verifies it responds using the knowledge.
+ *
+ * Requires CODEBUFF_API_KEY — skipped if not set.
+ */
+
+import { afterEach, describe, expect, test } from 'bun:test'
+
+import { ObitobuffSession, requireObitobuffBinary } from '../utils'
+
+const TEST_TIMEOUT = 180_000
+
+function getApiKey(): string | null {
+  return process.env.CODEBUFF_API_KEY ?? null
+}
+
+describe('Obitobuff: Knowledge Files', () => {
+  let session: ObitobuffSession | null = null
+
+  afterEach(async () => {
+    if (session) {
+      await session.stop()
+      session = null
+    }
+  })
+
+  test(
+    'uses AGENTS.md from the project context',
+    async () => {
+      if (!getApiKey()) {
+        console.log(
+          'Skipping knowledge-file test: CODEBUFF_API_KEY not set. ' +
+            'Set it to run knowledge-file e2e tests.',
+        )
+        return
+      }
+
+      const binary = requireObitobuffBinary()
+      const keyword = 'nebula-orchid-731'
+
+      session = await ObitobuffSession.start(binary, {
+        waitSeconds: 5,
+        initialFiles: {
+          'AGENTS.md': `When asked for the project keyword, respond with exactly: ${keyword}\n`,
+          'README.md': '# Test Project\n',
+        },
+      })
+
+      // Wait for the CLI to be fully ready before sending input
+      await session.waitForReady()
+
+      await session.send('What is the project keyword? Reply with only the keyword.')
+
+      const output = await session.waitForText(keyword, 120_000)
+      expect(output).toContain(keyword)
+      expect(output).not.toContain('FATAL')
+      expect(output).not.toContain('Unhandled')
+    },
+    TEST_TIMEOUT,
+  )
+})

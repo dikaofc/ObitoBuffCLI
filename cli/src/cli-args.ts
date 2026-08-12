@@ -1,0 +1,149 @@
+import { createRequire } from 'module'
+
+import { Argument, Command } from 'commander'
+
+import {
+  IS_LOCAL_MODE,
+  IS_OBITOBUFF,
+  type AgentMode,
+} from './utils/constants'
+import { getCliEnv } from './utils/env'
+
+const require = createRequire(import.meta.url)
+
+export type ParsedArgs = {
+  initialPrompt: string | null
+  command?: string
+  agent?: string
+  clearLogs: boolean
+  continue: boolean
+  continueId?: string | null
+  cwd?: string
+  initialMode?: AgentMode
+  model?: string
+}
+
+export function loadPackageVersion(): string {
+  const env = getCliEnv()
+  if (env.CODEBUFF_CLI_VERSION) {
+    return env.CODEBUFF_CLI_VERSION
+  }
+
+  try {
+    const pkg = require('../package.json') as { version?: string }
+    if (pkg.version) {
+      return pkg.version
+    }
+  } catch {
+    // Continue to dev fallback
+  }
+
+  return 'dev'
+}
+
+export function parseArgs({
+  argv = process.argv,
+  isObitobuff = IS_OBITOBUFF && !IS_LOCAL_MODE,
+  version = loadPackageVersion(),
+}: {
+  argv?: string[]
+  isObitobuff?: boolean
+  version?: string
+} = {}): ParsedArgs {
+  const program = new Command()
+
+  if (isObitobuff) {
+    // Obitobuff: simplified CLI - no prompt args, no agent override, no clear-logs
+    program
+      .name('obitobuff')
+      .description('Obitobuff - Free AI coding assistant')
+      .version(version, '-v, --version', 'Print the CLI version')
+      .option(
+        '--continue [conversation-id]',
+        'Continue from a previous conversation (optionally specify a conversation id)',
+      )
+      .option(
+        '--cwd <directory>',
+        'Set the working directory (default: current directory)',
+      )
+      .option(
+        '--model <model-id>',
+        'Start on a specific model (from obitobuff.config.json in local mode)',
+      )
+      .addArgument(
+        new Argument('[command]', 'Command to run').choices(['login']),
+      )
+      .helpOption('-h, --help', 'Show this help message')
+  } else {
+    // Full CLI with all options (regular Codebuff, and Obitobuff local mode
+    // where the user brings their own providers).
+    program
+      .name('obitobuff')
+      .description('Obitobuff CLI - AI-powered coding assistant')
+      .version(version, '-v, --version', 'Print the CLI version')
+      .option(
+        '--agent <agent-id>',
+        'Run a specific agent id (skips loading local .agents overrides)',
+      )
+      .option(
+        '--clear-logs',
+        'Remove any existing CLI log files before starting',
+      )
+      .option(
+        '--continue [conversation-id]',
+        'Continue from a previous conversation (optionally specify a conversation id)',
+      )
+      .option(
+        '--cwd <directory>',
+        'Set the working directory (default: current directory)',
+      )
+      .option(
+        '--model <model-id>',
+        'Start on a specific model (from obitobuff.config.json in local mode)',
+      )
+      .option('--lite', 'Start in LITE mode')
+      .option('--free', 'Start in LITE mode (deprecated alias)')
+      .option('--max', 'Start in MAX mode')
+      .option('--plan', 'Start in PLAN mode')
+      .addHelpText(
+        'after',
+        '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry',
+      )
+      .helpOption('-h, --help', 'Show this help message')
+      .argument('[prompt...]', 'Initial prompt to send to the agent')
+      .allowExcessArguments(true)
+  }
+
+  program.parse(argv)
+
+  const options = program.opts()
+  const args = program.args
+
+  const continueFlag = options.continue
+
+  // Determine initial mode from flags (last flag wins if multiple specified)
+  // Obitobuff always uses LITE mode
+  let initialMode: AgentMode | undefined
+  if (isObitobuff) {
+    initialMode = 'LITE'
+  } else {
+    if (options.free || options.lite) initialMode = 'LITE'
+    if (options.max) initialMode = 'MAX'
+    if (options.plan) initialMode = 'PLAN'
+  }
+
+  return {
+    initialPrompt: !isObitobuff && args.length > 0 ? args.join(' ') : null,
+    command: args[0],
+    agent: options.agent,
+    clearLogs: options.clearLogs || false,
+    continue: Boolean(continueFlag),
+    continueId:
+      typeof continueFlag === 'string' && continueFlag.trim().length > 0
+        ? continueFlag.trim()
+        : null,
+    cwd: options.cwd,
+    initialMode,
+    model: typeof options.model === 'string' ? options.model : undefined,
+  }
+}
