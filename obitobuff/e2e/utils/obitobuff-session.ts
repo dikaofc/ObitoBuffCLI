@@ -6,7 +6,7 @@ import { tmuxCapture, tmuxSend, tmuxSendKey, tmuxStart, tmuxStop } from './tmux-
 
 /** Static strings that prove the CLI reached a post-init boot screen. */
 export const OBITOBUFF_BOOT_SIGNALS = [
-  '█████╗  ██████╔╝', // ASCII logo (full or small variant)
+  '██╔═══██╗', // ASCII logo (full or small variant; the 'O' shape)
   'Start coding for free',
   'Enter a coding task',
   'Pick a model to start',
