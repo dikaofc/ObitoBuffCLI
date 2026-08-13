@@ -2,10 +2,10 @@
 
 **Your AI coding agent, on your own models.** Obitobuff is a TypeScript monorepo (built with Bun) that ships a powerful terminal coding agent with specialized sub-agents, file finding, editing, bash, research, and code review.
 
-Two ways to run it:
-
-1. **Local mode (no account, no limits)** — point Obitobuff at any OpenAI-compatible endpoint (Ollama, OmniRoute, 9Route, OpenRouter, LM Studio, vLLM, …) with a local `obitobuff.config.json`. No login, no sessions, no ads, unlimited use.
-2. **Free hosted mode** — the bundled free model catalog (DeepSeek V4 Flash, GPT-5.6 Luna, MiniMax M3, MiMo 2.5, …), served by the Obitobuff backend.
+Obitobuff is **local-only**: it runs entirely on your own OpenAI-compatible
+endpoints (Ollama, OmniRoute, 9Route, OpenRouter, LM Studio, vLLM, …)
+configured in `obitobuff.config.json`. No Obitobuff backend, no login, no
+sessions, no ads.
 
 ---
 
@@ -23,11 +23,10 @@ obitobuff   # run in any project directory
 ```
 
 **Platform support** — prebuilt binaries for Linux x64/arm64 (Debian, Ubuntu,
-Arch, Fedora, …), macOS Intel/Apple Silicon, Windows 10/11 (64-bit), VPS /
-headless servers, and Android via Termux + proot-distro. See the
-[platform guide](./docs/platforms.md) for per-platform instructions
-(including the Android/Termux setup and a `INSTALL_MODE=binary` option for
-Node-less servers).
+Arch, Fedora, …), macOS Intel/Apple Silicon, Windows 10/11 (64-bit), and VPS /
+headless servers. See the [platform guide](./docs/platforms.md) for
+per-platform instructions (including a `INSTALL_MODE=binary` option for
+Node-less servers that adds itself to PATH automatically).
 
 ### Publishing a new version
 
@@ -44,7 +43,50 @@ version. To point the launcher at a different repo, set `OBITOBUFF_UPDATE_REPO`.
 
 ## Quick start — local mode (recommended)
 
-Run Obitobuff in any project from your terminal, entirely on your own providers:
+Run Obitobuff in any project from your terminal, entirely on your own providers.
+The only setup is a config file: save one of the ready-to-copy examples below as
+`obitobuff.config.json` in your project, then run `obitobuff`.
+
+**Ollama — free, runs locally, no API key:**
+
+```bash
+ollama pull qwen3-coder        # or any model you have pulled
+cat > obitobuff.config.json <<'EOF'
+{
+  "defaultModel": "qwen3-coder",
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "ollama",
+      "models": [{ "id": "qwen3-coder" }]
+    }
+  }
+}
+EOF
+obitobuff
+```
+
+**OpenRouter — cloud models, one key for hundreds of models:**
+
+```bash
+cat > obitobuff.config.json <<'EOF'
+{
+  "defaultModel": "anthropic/claude-sonnet-4",
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openrouter",
+      "apiKey": "${OPENROUTER_API_KEY}",
+      "models": [{ "id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4" }]
+    }
+  }
+}
+EOF
+export OPENROUTER_API_KEY=sk-or-v1-...   # get one at https://openrouter.ai/keys
+obitobuff
+```
+
+Running from a source checkout (or building a standalone binary) instead:
 
 ```bash
 bun install
@@ -52,13 +94,7 @@ cd ~/my-project
 cp <path-to-obitobuff>/config.example.json ./obitobuff.config.json
 # edit the file: set baseUrl / apiKey / models for your providers
 bun run --cwd <path-to-obitobuff>/cli dev
-```
-
-Or build a standalone binary:
-
-```bash
-bun run build:obitobuff
-./obitobuff
+# or: bun run build:obitobuff && ./obitobuff
 ```
 
 Then describe what you want. Obitobuff finds the relevant files, makes changes, and runs the checks that matter for your project — using only the models you configured.
@@ -69,14 +105,14 @@ Place the config in your working directory (or `~/.obitobuff/config.json`, or po
 
 ```json
 {
-  "defaultModel": "oc/deepseek-v4-flash-free",
+  "defaultModel": "deepseek/deepseek-v4-flash",
   "providers": {
     "ollama": {
       "baseUrl": "http://localhost:20128/v1",
       "api": "openai-completions",
       "apiKey": "sk-your-key",
       "models": [
-        { "id": "oc/deepseek-v4-flash-free" }
+        { "id": "deepseek/deepseek-v4-flash" }
       ]
     },
     "9route": {
@@ -102,24 +138,9 @@ Place the config in your working directory (or `~/.obitobuff/config.json`, or po
 
 In local mode you can switch models at any time with `/model` (list) or `/model <id>`, and pick one at startup with `--model <id>`. See [`config.example.json`](./config.example.json).
 
-## Free hosted mode
-
-The bundled model catalog requires the Obitobuff backend (login + sessions, text-ads supported). Build with the free-mode flag:
-
-```bash
-OBITOBUFF_MODE=true bun --cwd cli dev        # dev
-bun run build:obitobuff                        # binary (already free-mode)
-```
-
-The regular picker currently offers:
-
-| Model                       | Access                  | Best for                                |
-| --------------------------- | ----------------------- | --------------------------------------- |
-| **DeepSeek V4 Flash 07/31** | Full and limited access | The default; fast coding and tool use   |
-| **DeepSeek V4 Pro**         | Full access             | Longer, deeper reasoning                |
-| **GPT-5.6 Luna**            | Full access             | Deep reasoning with image support       |
-| **MiniMax M3**              | Full access             | Fast responses with image support       |
-| **MiMo 2.5**                | Full and limited access | Balanced performance with image support |
+There is no hosted backend anymore — no login, no sessions, no ads, and no
+Obitobuff API calls of any kind. The CLI refuses to start until you provide a
+`obitobuff.config.json` (see above) with at least one provider + model.
 
 ## How Obitobuff works
 
@@ -136,7 +157,7 @@ Obitobuff uses specialized agents instead of sending every task through one mode
 git clone https://github.com/dikaofc/ObitoBuffCLI.git
 cd ObitoBuffCLI
 bun install
-bun run dev:obitobuff     # start the CLI in dev (free mode)
+bun run dev:obitobuff     # start the CLI in dev (local mode)
 ```
 
 Run checks:

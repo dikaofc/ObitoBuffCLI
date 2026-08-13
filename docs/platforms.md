@@ -11,7 +11,6 @@ updates itself automatically from GitHub Releases
 | macOS Intel | `darwin-x64` | `install.sh` |
 | macOS Apple Silicon | `darwin-arm64` | `install.sh` |
 | Windows 10/11 (64-bit) | `win32-x64` (+ `win32-x64-baseline`) | PowerShell `npm install -g` or Git Bash / WSL `install.sh` |
-| Android (Termux) | — (see below) | Termux + proot-distro (Linux userspace) |
 | VPS / headless server | `linux-x64` / `linux-arm64` | `install.sh` over SSH |
 
 "Baseline" builds are for pre-2013 CPUs without AVX2; the launcher detects this
@@ -33,6 +32,13 @@ No Node.js? Install just the binary (no auto-update):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dikaofc/ObitoBuffCLI/main/install.sh | INSTALL_MODE=binary bash
 ```
+
+Binary mode installs to `~/.local/bin` (override with `OBITOBUFF_BIN_DIR`) and
+**adds that directory to your PATH automatically** by writing a small marker
+block into `~/.bashrc` / `~/.zshrc` / `~/.profile` (whichever exists). It is
+idempotent — re-running install.sh updates the path in place instead of
+stacking duplicates — and you only need to restart your shell (or
+`source ~/.bashrc`) once. Set `OBITOBUFF_NO_PATH=1` to skip PATH editing.
 
 On Arch/Manjaro the only prerequisite is `sudo pacman -S nodejs npm`; the
 launcher works identically to other distributions.
@@ -70,30 +76,11 @@ curl -fsSL https://raw.githubusercontent.com/dikaofc/ObitoBuffCLI/main/install.s
 The `win32-x64-baseline` build exists for older Windows machines; the launcher
 picks it automatically after a failed launch if needed.
 
-## Android (Termux)
-
-Obitobuff's prebuilt binaries target glibc Linux, so they do **not** run on
-Termux's native (bionic) userspace. The supported, fully-working path is a
-real Linux distro inside Termux — no root required:
-
-```bash
-pkg update && pkg upgrade
-pkg install proot-distro
-proot-distro install ubuntu
-proot-distro login ubuntu
-```
-
-Inside the distro (a normal arm64 Linux userspace):
-
-```bash
-apt update && apt install -y curl nodejs npm
-curl -fsSL https://raw.githubusercontent.com/dikaofc/ObitoBuffCLI/main/install.sh | bash
-obitobuff
-```
-
-Everything works there exactly like on a server: local mode (your own
-providers), `/model` switching, and auto-updates from GitHub releases. Add
-`proot-distro login ubuntu` to your workflow or a shell alias to start it fast.
+Git Bash / MSYS2 installs (either mode) handle PATH automatically:
+`INSTALL_MODE=binary` appends its install dir to your `~/.bashrc`, and the npm
+launcher's global bin is already on PATH. PowerShell users get `obitobuff` on
+PATH via npm; to use a raw binary from PowerShell, add the install dir to the
+Windows PATH manually (System Settings → Environment Variables).
 
 ## VPS / headless servers
 
@@ -109,7 +96,8 @@ obitobuff
 - The TUI renders over a normal SSH session; use a terminal with truecolor for
   the best look (Kitty, iTerm2, Windows Terminal, …).
 - No Node.js on a minimal VPS? Use `INSTALL_MODE=binary bash` to get the raw
-  binary (no auto-update; re-run to upgrade).
+  binary (no auto-update; re-run to upgrade) — it installs to `~/.local/bin`
+  and adds that directory to PATH automatically.
 - For long-running agent work over flaky SSH, run inside `tmux` or `screen`
   so the session survives disconnects.
 

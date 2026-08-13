@@ -12,6 +12,7 @@ import os from 'os'
 import path from 'path'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { isLocalMode } from '@codebuff/common/config/local-config'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
@@ -41,7 +42,6 @@ import { clearLogFile, logger } from './utils/logger'
 import { drainClientLogs } from './utils/log-shipper'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
-import { startEngagementTracking } from './utils/engagement'
 import {
   exitCliWithFatalError,
   installProcessCleanupHandlers,
@@ -231,10 +231,39 @@ async function main(): Promise<void> {
   // Set the auth token for the API client
   setApiClientAuthToken(getAuthToken())
 
-  // Handle login command before rendering the app
+  // Handle login command before rendering the app. Obitobuff is local-only:
+  // there is no account to log into, so explain that instead of starting a
+  // login flow against any hosted API.
   if (isLoginCommand) {
+    if (IS_OBITOBUFF) {
+      console.log('Obitobuff is local-only — there is no account to log into.')
+      console.log(
+        'Point it at your own OpenAI-compatible providers in obitobuff.config.json / config.json (see config.example.json).',
+      )
+      process.exit(0)
+    }
     await runPlainLogin()
     return
+  }
+
+  // Obitobuff runs entirely on your own providers — this build has no hosted
+  // backend to fall back to. Without a configured provider there is nothing to
+  // connect to, so refuse to start rather than route anywhere else.
+  if (IS_OBITOBUFF && !isLocalMode()) {
+    console.error(red('❌ No local provider configured.'))
+    console.error('')
+    console.error('Obitobuff is local-only: it talks to your own OpenAI-compatible')
+    console.error('endpoints from obitobuff.config.json / config.json — no account,')
+    console.error('no login, no obitobuff.com backend. Add at least one provider:') 
+    console.error('')
+    console.error('  {"providers": {"openrouter": {')
+    console.error('    "baseUrl": "https://openrouter.ai/api/v1",')
+    console.error('    "apiKey": "sk-${OPENROUTER_API_KEY}",')
+    console.error('    "models": [{"id": "openai/gpt-5.3"}]')
+    console.error('  }}}')
+    console.error('')
+    console.error('See config.example.json for the full shape, then restart obitobuff.')
+    process.exit(1)
   }
 
   // Show project picker only when user starts at the home directory or an ancestor
@@ -271,7 +300,12 @@ async function main(): Promise<void> {
   // Initialize skill registry (loads skills from .agents/skills)
   await initializeSkillRegistry()
 
-  // Handle publish command before rendering the app
+  // Handle publish command before rendering the app. Obitobuff is local-only:
+  // publishing to the agent registry needs the hosted backend, so refuse.
+  if (isPublishCommand && IS_OBITOBUFF) {
+    console.error(red('❌ Publish is not available: Obitobuff is local-only.'))
+    process.exit(1)
+  }
   if (isPublishCommand) {
     const publishIndex = process.argv.indexOf('publish')
     const agentIds = process.argv.slice(publishIndex + 1)
@@ -433,14 +467,9 @@ async function main(): Promise<void> {
   process.removeListener('uncaughtException', earlyFatalHandler)
   process.removeListener('unhandledRejection', earlyFatalHandler)
 
-  // Start the engaged-time heartbeat only once the interactive TUI is actually
-  // live — reaching renderer creation means this is a real session (the
-  // login/publish/smoke-test commands all exit earlier). Obitobuff-only, matching
-  // the MESSAGE_SENT DAU signal; local mode has no backend to report to.
-  // Stopped in exitCliCleanly().
-  if (IS_OBITOBUFF && !IS_LOCAL_MODE) {
-    startEngagementTracking()
-  }
+  // The engaged-time heartbeat reports to the hosted backend, which local-only
+  // Obitobuff never talks to, so it is never started. Stopped in
+  // exitCliCleanly() when it is running (regular Codebuff).
 
   createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>

@@ -2,27 +2,28 @@
 
 [English](./README.md) | 简体中文
 
-**面向编程、构建和研究的五款免费 AI 产品。** 无需订阅、积分或 API 密钥。
-
-[Obitobuff](https://obitobuff.com) 将专业化智能体和多种领先模型带到你的终端、桌面、浏览器和 GitHub 仓库中。内置模型由文字广告支持。
+**本地优先的 AI 编程智能体。** Obitobuff 完全运行在你自己的 OpenAI 兼容端点（Ollama、OmniRoute、9Route、OpenRouter、LM Studio、vLLM 等）之上，通过 `obitobuff.config.json` 配置——没有 Obitobuff 后端、没有登录、没有会话、没有广告，也不调用任何 Obitobuff API。
 
 ## 选择适合你的 Obitobuff
 
 | 产品                         | 功能                         | 开始使用                                                        |
 | ---------------------------- | ---------------------------- | --------------------------------------------------------------- |
 | **Obitobuff Desktop**（Beta） | 在本地并行运行多个智能体     | [下载 macOS、Windows 或 Linux 版](https://obitobuff.com/desktop) |
-| **Obitobuff CLI**             | 从终端编程                   | [安装 CLI](https://obitobuff.com/cli)                            |
+| **Obitobuff CLI**             | 本地优先的终端编程（自带模型/API 密钥） | [安装 CLI](https://obitobuff.com/cli)                            |
 | **Obitobuff Web**             | 构建和发布全栈应用           | [构建应用](https://obitobuff.com/web)                            |
 | **Obitobuff Cloud**           | 在任意 GitHub 仓库运行智能体 | [连接仓库](https://obitobuff.com/cloud)                          |
 | **Obitobuff Chat**            | 使用 AI 进行研究和思考       | [开始对话](https://obitobuff.com/chat)                           |
 
+> 注意：上表是 obitobuff.com 的产品套件（Desktop、Web、Cloud、Chat 等）。**本仓库只包含 Obitobuff CLI，且它是本地优先的**——其他产品与本仓库无关。
+
 ## 快速开始
 
-在任意项目中从终端运行 Obitobuff：
+在任意项目中从终端运行 Obitobuff（先在项目里创建 `obitobuff.config.json`，见下文「模型」一节）：
 
 ```bash
 npm install -g obitobuff
 cd ~/my-project
+# 创建 obitobuff.config.json（至少一个 provider + model）
 obitobuff
 ```
 
@@ -30,22 +31,25 @@ obitobuff
 
 ## 模型
 
-Obitobuff 提供经过筛选的模型目录。常规模型选择器目前包括：
+Obitobuff 不附带任何内置模型目录。所有模型都来自你自己的 `obitobuff.config.json`（或 `config.json`），每个 provider 指向你自己的 OpenAI 兼容端点：
 
-| 模型                        | 访问范围       | 适用场景                                          |
-| --------------------------- | -------------- | ------------------------------------------------- |
-| **DeepSeek V4 Flash 07/31** | 完整和受限访问 | CLI 和 Desktop 的默认模型；快速编程和工具调用     |
-| **DeepSeek V4 Pro**         | 完整访问       | 更长、更深入的推理                                |
-| **GPT-5.6 Luna**            | 完整访问       | Web、Cloud 和 Chat 的默认模型；深度推理并支持图像 |
-| **MiniMax M3**              | 完整访问       | 快速响应并支持图像                                |
-| **MiMo 2.5**                | 完整和受限访问 | 均衡性能并支持图像                                |
+```json
+{
+  "defaultModel": "deepseek/deepseek-v4-flash",
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openai-completions",
+      "apiKey": "sk-${OPENROUTER_API_KEY}",
+      "models": [{ "id": "deepseek/deepseek-v4-flash" }]
+    }
+  }
+}
+```
 
-常规模型选择器之外：
-
-- **GLM 5.2** 通过获得的会话使用，并非始终解锁。
-- **Gemini 3.1 Flash Lite** 用于查找文件和研究等专业任务，不会出现在主模型选择器中。
-
-可用模型和限制取决于你的访问级别、所用产品和当前容量。Obitobuff Desktop 还可以通过你现有的提供商账户运行本地安装的 Claude Code 和 Codex 智能体；这些连接的模型不属于 Obitobuff 的内置模型目录。
+- 根智能体与所有子智能体的请求都路由到你配置的 provider。
+- 用 `/model` 列出或切换模型，用 `--model <id>` 在启动时选择。
+- 没有配置任何 provider 时，CLI 会拒绝启动并提示如何创建配置。
 
 ## Obitobuff 的工作原理
 
@@ -57,35 +61,30 @@ Obitobuff 使用专业化智能体，而不是把所有任务都交给同一个�
 - **本地并行工作** —— Desktop 会将并发智能体隔离在各自的工作区中。
 - **托管环境** —— Web 和 Cloud 提供沙箱、预览、终端和部署工作流。
 
-## 免费访问
+## 无需账户
 
-Obitobuff 在所有国家和地区均可使用。受支持的地区提供完整访问；其他地区以及使用 VPN 的用户获得受限访问，目前包括 DeepSeek V4 Flash 和 MiMo 2.5，每天可使用六个一小时会话。
-
-内置模型由文字广告支持。开始前，Obitobuff 会显示适用的会话限制以及模型特定的数据使用提示。
+Obitobuff 是本地优先的：没有托管后端，没有登录系统，没有会话，没有广告。你的请求只发往你在 `obitobuff.config.json` 里配置的 provider——计费、限额与隐私完全取决于你自己选择的提供商。
 
 ## 数据使用与隐私
 
-**我的数据会用于训练 AI 吗？** 只有当模型或功能明确说明数据可能用于 AI 训练时才会。届时，Obitobuff 或模型提供商可能保留提交内容，用于开发、训练、测试、评估、微调和改进 AI 模型或产品。
+**我的数据会用于训练 AI 吗？** 这取决于你配置的 provider——Obitobuff 本身不收集、存储或分析你的数据。
 
-**我的数据会如何使用和存储？** 我们会使用提示词、消息、代码、文件和仓库数据来提供服务。我们可能会分析提示词和消息（包括粘贴的内容），通过 Obitobuff 系统及代表我们行事的服务提供商来个性化广告。单独上传的文件和已连接的仓库不会提供给广告服务商。在法律要求的地区，我们提供广告选择并遵循公认的退出信号；在其他地区，此类处理可能是使用免费服务的必要条件。留存期限与完整详情请参阅隐私政策。
-
-完整详情请参阅[隐私政策](https://obitobuff.com/privacy-policy)。
+**我的数据会如何使用和存储？** 你的提示词、代码和文件只会发送给你在 `obitobuff.config.json` 里配置的 provider。Obitobuff 是本地优先的，没有托管后端，也不包含任何遥测。
 
 ## 参与贡献
 
 Obitobuff 是一个使用 Bun 构建的 TypeScript monorepo。欢迎为产品、智能体、工具、文档和底层运行时贡献代码。
 
 ```bash
-git clone https://github.com/CodebuffAI/obitobuff.git
-cd obitobuff
+git clone https://github.com/dikaofc/ObitoBuffCLI.git
+cd ObitoBuffCLI
 bun install
-bun up
 ```
 
 单独启动 CLI：
 
 ```bash
-bun start-cli
+bun run dev:obitobuff
 ```
 
 环境配置及提交拉取请求前应运行的检查，请参阅[贡献指南](./CONTRIBUTING.md)、[开发指南](./docs/development.md)和[测试指南](./docs/testing.md)。
@@ -97,7 +96,6 @@ Obitobuff 基于开放的多智能体框架 [Codebuff](https://codebuff.com) 构
 ## 链接
 
 - [官网](https://obitobuff.com)
-- [GitHub](https://github.com/CodebuffAI/obitobuff)
-- [Discord](https://discord.gg/yXG3w7wxfs)
-- [隐私政策](https://obitobuff.com/privacy-policy)
+- [GitHub](https://github.com/dikaofc/ObitoBuffCLI)
+- [Releases](https://github.com/dikaofc/ObitoBuffCLI/releases)
 - [许可证](./LICENSE)

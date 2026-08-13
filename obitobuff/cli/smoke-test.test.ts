@@ -17,7 +17,8 @@
  */
 
 import { execFileSync, execSync, spawn, spawnSync } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, rmSync, writeFileSync } from 'fs'
+import os from 'os'
 import path from 'path'
 
 import { describe, test, expect, afterEach } from 'bun:test'
@@ -150,30 +151,49 @@ describe.skipIf(!binaryExists)('Obitobuff Binary Smoke Tests', () => {
   )
 
   test(
-    'login command reaches the plain login flow',
+    'login command explains local-only mode',
     () => {
       const result = runBinaryResult(['login'])
       const output = stripAnsiCodes(
         `${result.stdout ?? ''}${result.stderr ?? ''}`,
       )
 
-      // The local URL is intentionally unreachable; the smoke signal is that
-      // Commander accepted `login` and the CLI entered the login flow.
-      expect(result.status).not.toBe(0)
-      expect(output).toContain('Obitobuff Login')
-      expect(output).toContain('Generating login URL')
-      expect(output).not.toContain('too many arguments')
-      expect(output).not.toContain('unknown command')
+      // Obitobuff is local-only: the login flow must never start (it would
+      // hit a hosted API). The CLI explains this and exits cleanly.
+      expect(result.status).toBe(0)
+      expect(output).toContain('local-only')
+      expect(output).toContain('obitobuff.config.json')
+      expect(output).not.toContain('Generating login URL')
+      expect(output).not.toContain('Obitobuff Login')
+    },
+    TIMEOUT_MS,
+  )
+
+  test(
+    'refuses to start without a local config (no hosted fallback)',
+    () => {
+      const result = runBinaryResult([])
+      const output = stripAnsiCodes(
+        `${result.stdout ?? ''}${result.stderr ?? ''}`,
+      )
+
+      expect(result.status).toBe(1)
+      expect(output).toContain('No local provider configured')
+      expect(output).toContain('obitobuff.config.json')
+      // Must not try any hosted login/session URL.
+      expect(output).not.toContain('/api/auth')
+      expect(output).not.toContain('Generating login URL')
     },
     TIMEOUT_MS,
   )
 
   // -------------------------------------------------------------------------
-  // tmux title-screen test
+  // tmux local-only startup test
   // -------------------------------------------------------------------------
 
-  describe.skipIf(!tmuxAvailable)('tmux title screen', () => {
+  describe.skipIf(!tmuxAvailable)('tmux local-only startup', () => {
     let sessionName = ''
+    let configPath = ''
 
     afterEach(async () => {
       if (sessionName) {
@@ -184,54 +204,65 @@ describe.skipIf(!binaryExists)('Obitobuff Binary Smoke Tests', () => {
         }
         sessionName = ''
       }
+      if (configPath) {
+        try {
+          rmSync(configPath, { force: true })
+        } catch {
+          // ignore
+        }
+        configPath = ''
+      }
     })
 
     test(
-      'displays Obitobuff ASCII logo on startup',
+      'starts straight into chat on the local config (no login/landing screen)',
       async () => {
-        sessionName = `obitobuff-smoke-${Date.now()}`
+        // The local-only binary refuses to start without a config; give it one
+        // so the TUI boots and renders the chat surface directly.
+        configPath = path.join(
+          os.tmpdir(),
+          `obitobuff-smoke-config-${Date.now()}.json`,
+        )
+        writeFileSync(
+          configPath,
+          JSON.stringify({
+            defaultModel: 'test/local-model',
+            providers: {
+              local: {
+                baseUrl: 'http://127.0.0.1:9/v1',
+                apiKey: 'sk-test',
+                models: [{ id: 'test/local-model', name: 'Local Model' }],
+              },
+            },
+          }),
+          'utf-8',
+        )
 
-        // Start the binary in a detached tmux session
+        sessionName = `obitobuff-smoke-${Date.now()}`
+        await tmux(['new-session', '-d', '-s', sessionName, '-x', '120', '-y', '35'])
         await tmux([
-          'new-session',
-          '-d',
-          '-s',
+          'send-keys',
+          '-t',
           sessionName,
-          '-x',
-          '120',
-          '-y',
-          '35',
-          BINARY_PATH,
+          `OBITOBUFF_CONFIG=${configPath} ${BINARY_PATH}`,
+          'Enter',
         ])
 
-        // Poll until the title screen renders (ASCII art uses block chars)
+        // Poll until the chat input placeholder renders.
         let cleanOutput = ''
         for (let attempt = 0; attempt < 20; attempt++) {
           await sleep(500)
-          const raw = await tmux(['capture-pane', '-t', sessionName, '-p'])
-          cleanOutput = stripAnsiCodes(raw)
-
-          // Block characters from the ASCII logo indicate the title screen rendered
-          if (cleanOutput.includes('██')) break
-        }
-
-        // Bail with a descriptive error if the title screen never appeared
-        if (!cleanOutput.includes('██')) {
-          throw new Error(
-            `Obitobuff title screen did not render within 10s. Captured output:\n${cleanOutput}`,
+          cleanOutput = stripAnsiCodes(
+            await tmux(['capture-pane', '-t', sessionName, '-p']),
           )
+          if (cleanOutput.includes('Enter a coding task')) break
         }
 
-        // Verify it's the OBITOBUFF logo, not CODEBUFF.
-        // The Obitobuff 'F' character's third line starts with the crossbar:
-        //   █████╗  ██████╔╝
-        // whereas Codebuff 'C' has:
-        //   ██║     ██║   ██║
-        // We check for the F + R pattern on line 3 of the logo.
-        expect(cleanOutput).toContain('█████╗  ██████╔╝')
-
-        // The Codebuff logo's distinctive C+O opening should NOT appear
-        expect(cleanOutput).not.toContain('██╔════╝██╔═══██╗')
+        expect(cleanOutput).toContain('Enter a coding task')
+        // Local-only: no hosted landing/login screens may appear.
+        expect(cleanOutput).not.toContain('Start coding for free')
+        expect(cleanOutput).not.toContain('Press ENTER to login')
+        expect(cleanOutput).not.toContain('Generating login URL')
       },
       TIMEOUT_MS,
     )

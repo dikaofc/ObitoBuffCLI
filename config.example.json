@@ -1,9 +1,9 @@
 {
-  "//": "Obitobuff local config. Copy to obitobuff.config.json (or config.json) in",
-  "//2": "your working directory, or to ~/.obitobuff/config.json. When a provider",
-  "//3": "with models is present, Obitobuff runs fully on your own endpoints: no",
-  "//4": "login, no sessions, no ads.",
-  "defaultModel": "oc/deepseek-v4-flash-free",
+  "//": "Obitobuff config. Obitobuff is local-only: it runs entirely on your own",
+  "//2": "OpenAI-compatible providers — no account, no login, no sessions, no ads,",
+  "//3": "no Obitobuff backend. Copy to obitobuff.config.json (or config.json) in",
+  "//4": "your working directory, or to ~/.obitobuff/config.json.",
+  "defaultModel": "deepseek/deepseek-v4-flash",
   "providers": {
     "ollama": {
       "baseUrl": "http://localhost:20128/v1",
@@ -11,7 +11,7 @@
       "apiKey": "sk-a400317ae42278e5-da43f8-70d78d78",
       "models": [
         {
-          "id": "oc/deepseek-v4-flash-free"
+          "id": "deepseek/deepseek-v4-flash"
         }
       ]
     },

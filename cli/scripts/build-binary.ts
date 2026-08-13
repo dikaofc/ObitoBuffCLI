@@ -157,10 +157,39 @@ async function main() {
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
 
-  // Collect all NEXT_PUBLIC_* environment variables
-  const nextPublicEnvVars = Object.entries(process.env)
-    .filter(([key]) => key.startsWith('NEXT_PUBLIC_'))
-    .map(([key, value]) => [`process.env.${key}`, `"${value ?? ''}"`])
+  // Collect all NEXT_PUBLIC_* environment variables. The release workflow
+  // injects these via GitHub Actions env, but a local build
+  // (bun run build:binary) has no such block — and a binary compiled without
+  // them fails the startup env validation. Fill gaps with the same shape the
+  // workflow injects; explicitly-set env vars always win.
+  //
+  // Obitobuff builds are local-only, so the baked app URL / support email
+  // point at obitobuff.com rather than the upstream Codebuff site.
+  const isObitobuffBuild = process.env.OBITOBUFF_MODE === 'true'
+  const nextPublicBuildDefaults: Record<string, string> = {
+    NEXT_PUBLIC_CB_ENVIRONMENT: 'dev',
+    NEXT_PUBLIC_CODEBUFF_APP_URL: isObitobuffBuild
+      ? 'https://obitobuff.com'
+      : 'https://codebuff.com',
+    NEXT_PUBLIC_SUPPORT_EMAIL: isObitobuffBuild
+      ? 'support@obitobuff.com'
+      : 'support@codebuff.com',
+    NEXT_PUBLIC_POSTHOG_API_KEY: 'phc_placeholder',
+    NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://us.i.posthog.com',
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_placeholder',
+    NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://billing.stripe.com',
+    NEXT_PUBLIC_WEB_PORT: '3001',
+  }
+  const nextPublicEnvVars = [
+    // Defaults first: --define flags applied later take precedence, so any
+    // NEXT_PUBLIC_* the caller actually exported overrides the default.
+    ...Object.entries(nextPublicBuildDefaults)
+      .filter(([key]) => !process.env[key])
+      .map(([key, value]) => [`process.env.${key}`, `"${value}"`]),
+    ...Object.entries(process.env)
+      .filter(([key]) => key.startsWith('NEXT_PUBLIC_'))
+      .map(([key, value]) => [`process.env.${key}`, `"${value ?? ''}"`]),
+  ]
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],

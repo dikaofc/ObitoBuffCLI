@@ -39,6 +39,8 @@ const OBITOBUFF_REMOVED_COMMAND_IDS = new Set([
   'image',
   'publish',
   'init',
+  // Obitobuff is local-only: no account to sign out of.
+  'logout',
 ])
 
 const OBITOBUFF_ONLY_COMMAND_IDS = new Set([

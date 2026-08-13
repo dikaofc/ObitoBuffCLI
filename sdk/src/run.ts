@@ -1187,10 +1187,13 @@ async function handlePromptResponse({
     // Only check the output schema.
     const parsedOutput = AgentOutputSchema.safeParse(action.output)
     if (!parsedOutput.success) {
+      // Support email is baked per build (codebuff.com vs obitobuff.com).
+      const supportEmail =
+        process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@codebuff.com'
       const message = [
         'Received invalid prompt response from server:',
         JSON.stringify(parsedOutput.error.issues),
-        'If this issues persists, please contact support@codebuff.com',
+        `If this issues persists, please contact ${supportEmail}`,
       ].join('\n')
       onError({ message })
       resolve({

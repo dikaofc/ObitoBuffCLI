@@ -13,7 +13,9 @@ import type {
 
 import { IS_OBITOBUFF } from './constants'
 
-const defaultAppUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+const defaultAppUrl =
+  env.NEXT_PUBLIC_CODEBUFF_APP_URL ||
+  (IS_OBITOBUFF ? 'https://obitobuff.com' : 'https://codebuff.com')
 
 // Normalize unknown errors to a user-facing string.
 const extractErrorMessage = (error: unknown, fallback: string): string => {

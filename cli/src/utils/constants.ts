@@ -10,11 +10,16 @@ import { getCliEnv } from './env'
 export const IS_OBITOBUFF = getCliEnv().OBITOBUFF_MODE === 'true'
 
 /**
- * Local mode: an obitobuff.config.json / config.json with providers exists, so
- * the CLI runs against your own OpenAI-compatible endpoints (Ollama, OmniRoute,
- * 9Route, ...) with no account, no sessions and no ads.
+ * Local mode: the CLI runs against your own OpenAI-compatible endpoints
+ * (Ollama, OmniRoute, 9Route, OpenRouter, ...) configured in
+ * obitobuff.config.json / config.json — no account, no login, no sessions,
+ * no ads.
+ *
+ * Obitobuff builds are local-only: `IS_LOCAL_MODE` is always true there, so
+ * every hosted-backend gate (login, sessions, ads, usage, engagement) folds
+ * away at compile time. Regular Codebuff still detects local mode at runtime.
  */
-export const IS_LOCAL_MODE = isLocalMode()
+export const IS_LOCAL_MODE = IS_OBITOBUFF ? true : isLocalMode()
 
 /** Message shown when the user ends a obitobuff session early. */
 export const END_SESSION_MESSAGE =

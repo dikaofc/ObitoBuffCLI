@@ -2,11 +2,7 @@ import { createRequire } from 'module'
 
 import { Argument, Command } from 'commander'
 
-import {
-  IS_LOCAL_MODE,
-  IS_OBITOBUFF,
-  type AgentMode,
-} from './utils/constants'
+import { IS_OBITOBUFF, type AgentMode } from './utils/constants'
 import { getCliEnv } from './utils/env'
 
 const require = createRequire(import.meta.url)
@@ -43,7 +39,9 @@ export function loadPackageVersion(): string {
 
 export function parseArgs({
   argv = process.argv,
-  isObitobuff = IS_OBITOBUFF && !IS_LOCAL_MODE,
+  // Obitobuff is local-only and keeps its simplified CLI: no mode flags, no
+  // prompt args, no agent/publish overrides.
+  isObitobuff = IS_OBITOBUFF,
   version = loadPackageVersion(),
 }: {
   argv?: string[]
@@ -70,9 +68,7 @@ export function parseArgs({
         '--model <model-id>',
         'Start on a specific model (from obitobuff.config.json in local mode)',
       )
-      .addArgument(
-        new Argument('[command]', 'Command to run').choices(['login']),
-      )
+      .addArgument(new Argument('[command]', 'Command to run'))
       .helpOption('-h, --help', 'Show this help message')
   } else {
     // Full CLI with all options (regular Codebuff, and Obitobuff local mode

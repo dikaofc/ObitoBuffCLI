@@ -85,7 +85,7 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
    ```
    Note: This only helps with `npm install`. Codebuff's own downloads use `HTTPS_PROXY` instead.
 
-4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `codebuff.com` in your firewall
+4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `github.com` (Obitobuff downloads binaries from GitHub Releases) in your firewall
 
 5. **Clear npm cache and reinstall**:
    ```powershell
@@ -168,6 +168,11 @@ Complex git commands may have issues with Windows path handling or shell escapin
 ---
 
 ### Issue: Login Browser Window Fails to Open
+
+> Note: this applies to the hosted Codebuff build. **Obitobuff is local-only**
+> — it has no login flow (`obitobuff login` explains this and exits). If your
+> `obitobuff` binary shows this prompt, you are running an old hosted build;
+> reinstall the latest from GitHub Releases.
 
 **Symptom**:
 ```

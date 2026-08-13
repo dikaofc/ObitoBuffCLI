@@ -7,7 +7,7 @@ import {
 
 import { useObitobuffSessionStore } from '../state/obitobuff-session-store'
 import { getAuthTokenDetails } from './auth'
-import { IS_OBITOBUFF } from './constants'
+import { IS_LOCAL_MODE, IS_OBITOBUFF } from './constants'
 
 import type { ObitobuffSessionResponse } from '../types/obitobuff-session'
 import type { ObitobuffSessionServerResponse } from '@codebuff/common/types/obitobuff-session'
@@ -223,6 +223,9 @@ export function holdsLiveObitobuffSlot(
 
 /** Best-effort DELETE of the caller's session row when it holds a live slot. */
 export async function releaseObitobuffSlot(): Promise<void> {
+  // Local mode has no server slot — its synthesized session looks "live" but
+  // DELETEing it would hit the hosted API with a stale token.
+  if (IS_LOCAL_MODE) return
   const current = useObitobuffSessionStore.getState().session
   if (!holdsLiveObitobuffSlot(current)) return
 
@@ -238,6 +241,6 @@ export async function releaseObitobuffSlot(): Promise<void> {
 
 /** Release the Obitobuff slot on exit paths that skip React unmount. */
 export async function endObitobuffSessionBestEffort(): Promise<void> {
-  if (!IS_OBITOBUFF) return
+  if (!IS_OBITOBUFF || IS_LOCAL_MODE) return
   await releaseObitobuffSlot()
 }

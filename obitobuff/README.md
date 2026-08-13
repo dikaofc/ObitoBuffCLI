@@ -1,6 +1,7 @@
 # Obitobuff
 
-**The free coding agent.** No subscription. No configuration. Start in seconds.
+**The local coding agent.** No account, no login, no hosted backend — it runs
+entirely on your own OpenAI-compatible providers from `obitobuff.config.json`.
 
 An AI coding agent that runs in your terminal — describe what you want, and Obitobuff edits your code.
 
@@ -14,6 +15,7 @@ npm install -g obitobuff
 
 ```bash
 cd ~/my-project
+cp config.example.json ./obitobuff.config.json   # add your providers + API keys
 obitobuff
 ```
 

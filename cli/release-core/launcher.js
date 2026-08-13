@@ -446,21 +446,28 @@ function createLauncher(productConfig) {
       if (isGithub && !effectiveRepo) return null
 
       const url = isGithub
-        ? `https://api.github.com/repos/${effectiveRepo}/releases/latest`
+        ? // github.com/{repo}/releases/latest redirects to /releases/tag/vX.Y.Z.
+          // Resolving the tag from the redirect avoids the GitHub API, whose
+          // per-IP rate limit (60 unauthenticated requests/hour → HTTP 403)
+          // broke the update check on shared/public IPs.
+          `https://github.com/${effectiveRepo}/releases/latest`
         : `https://registry.npmjs.org/${packageName}/latest`
 
       const res = await httpGet(url)
 
       if (res.statusCode !== 200) return null
 
-      const body = await streamToString(res)
       if (isGithub) {
-        const release = JSON.parse(body)
-        const tag = typeof release?.tag_name === 'string' ? release.tag_name : ''
+        // httpGet records the final URL after following redirects.
+        const match = (res.requestUrl || url).match(
+          /\/tag\/(v?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)\/?$/,
+        )
+        const tag = match ? match[1] : ''
         // Release tags are published as vX.Y.Z; metadata stores X.Y.Z so it
         // compares cleanly with the wrapper version.
         return tag ? tag.replace(/^v/, '') : null
       }
+      const body = await streamToString(res)
       const packageData = JSON.parse(body)
       return packageData.version || null
     } catch (error) {
@@ -1487,12 +1494,14 @@ function createLauncher(productConfig) {
       spawnInstalledBinary,
       attachExitHandler,
       getDefaultTargetKey,
+      getDownloadTargetKey,
       getCpuFeatureCachePath,
       getCurrentVersion,
       getMetadataVersion,
       getRequiredWrapperVersion,
       ensureBinaryReady,
       isTargetAllowedForThisMachine,
+      stageBinary,
       CONFIG,
     },
   }

@@ -1,6 +1,7 @@
 import { IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 
 import { getApiClient } from './codebuff-api'
+import { IS_OBITOBUFF } from './constants'
 import { getCliEnv } from './env'
 
 import type { LogRecordInput } from '@codebuff/common/schemas/logs'
@@ -78,6 +79,8 @@ const clientLogFlusher = createClientLogFlusher({
 })
 
 function enabled(): boolean {
+  // Obitobuff is local-only: logs go nowhere (no backend to receive them).
+  if (IS_OBITOBUFF) return false
   const flag = getCliEnv().CODEBUFF_SHIP_LOGS
   if (flag === 'true') return true
   if (flag === 'false') return false

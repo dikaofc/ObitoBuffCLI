@@ -1,8 +1,9 @@
 # Obitobuff
 
-**Your own AI coding agent.** Run it free against your own OpenAI-compatible
-providers (Ollama, OmniRoute, 9Route, OpenRouter, LM Studio, vLLM, ...) — no
-account, no sessions, no ads — or use the built-in free backend.
+**Your own AI coding agent.** Obitobuff is local-only: it runs entirely on
+your own OpenAI-compatible providers (Ollama, OmniRoute, 9Route, OpenRouter,
+LM Studio, vLLM, ...) — no account, no login, no sessions, no ads, no hosted
+backend.
 
 This package is the *launcher*: a thin Node wrapper that downloads the
 compiled CLI binary and keeps it up to date automatically from
@@ -11,7 +12,7 @@ compiled CLI binary and keeps it up to date automatically from
 ## Install
 
 ```bash
-npm install -g https://github.com/dikaofc/ObitoBuffCLI/releases/download/v0.1.0/obitobuff-launcher-0.1.0.tgz
+npm install -g https://github.com/dikaofc/ObitoBuffCLI/releases/download/v0.1.1/obitobuff-launcher-0.1.1.tgz
 ```
 
 or always get the latest:
@@ -32,27 +33,28 @@ launcher checks GitHub Releases and swaps in a newer binary when one exists.
 To use a different update repo, set `OBITOBUFF_UPDATE_REPO` (e.g.
 `OBITOBUFF_UPDATE_REPO=you/your-fork obitobuff`).
 
-## Local mode (bring your own provider)
+## Configuration (required)
 
 Create `obitobuff.config.json` (or `config.json`) in your project directory:
 
 ```json
 {
-  "defaultModel": "oc/deepseek-v4-flash-free",
+  "defaultModel": "deepseek/deepseek-v4-flash",
   "providers": {
     "ollama": {
       "baseUrl": "http://localhost:11434/v1",
       "api": "openai-completions",
       "apiKey": "sk-...",
-      "models": [{ "id": "oc/deepseek-v4-flash-free" }]
+      "models": [{ "id": "deepseek/deepseek-v4-flash" }]
     }
   }
 }
 ```
 
-Obitobuff detects it, skips login/sessions, and routes every request to your
-providers. Secrets can live in the environment: `${API_KEY}` inside the file
-is interpolated at load time.
+The CLI refuses to start until at least one provider + model is configured.
+Every request (root agents and sub-agents) routes to your providers — there
+is no hosted backend to fall back to. Secrets can live in the environment:
+`${API_KEY}` inside the file is interpolated at load time.
 
 ## Links
 

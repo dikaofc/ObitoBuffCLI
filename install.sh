@@ -18,32 +18,6 @@ REPO="${OBITOBUFF_UPDATE_REPO:-dikaofc/ObitoBuffCLI}"
 VERSION="${VERSION:-latest}"
 MODE="${INSTALL_MODE:-launcher}"
 
-# --- Android / Termux -------------------------------------------------------
-# Bun-compiled binaries target glibc Linux and cannot run on Termux's native
-# bionic userspace. The supported Android path is a Linux distro inside
-# proot-distro (or any chroot/VM), where the standard install works as-is.
-if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] || [ -d /data/data/com.termux ]; then
-  cat <<'EOF'
-📱 Android/Termux detected.
-
-Obitobuff's prebuilt binaries need a glibc Linux environment, so on Termux
-install a Linux distro first (gives you a real arm64 Linux userspace):
-
-    pkg update && pkg upgrade
-    pkg install proot-distro
-    proot-distro install ubuntu
-    proot-distro login ubuntu
-
-Then, inside the distro:
-
-    apt update && apt install -y curl nodejs npm
-    curl -fsSL https://raw.githubusercontent.com/dikaofc/ObitoBuffCLI/main/install.sh | bash
-    obitobuff
-
-EOF
-  exit 1
-fi
-
 # --- Platform detection -----------------------------------------------------
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64)          TARGET="linux-x64" ;;
@@ -62,9 +36,14 @@ esac
 # --- Resolve version --------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
   echo "Resolving latest release from $REPO..."
+  # Follow the /releases/latest redirect and read the tag from the final URL.
+  # Unlike the GitHub API this has no per-IP rate limit — the API returns 403
+  # once 60 unauthenticated requests/hour are exhausted (common on shared or
+  # public IPs), which broke installs.
   TAG="$(
-    curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" |
-      grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/.*"tag_name": *"//; s/"$//'
+    curl -fsSL -o /dev/null -w '%{url_effective}' \
+      "https://github.com/$REPO/releases/latest" |
+      sed -E 's|.*/tag/(v?[^/?]+)/?$|\1|'
   )"
   [ -n "$TAG" ] || { echo "❌ Could not determine the latest release." >&2; exit 1; }
   VERSION="${TAG#v}"
@@ -74,6 +53,58 @@ else
 fi
 
 BINARY_URL="https://github.com/$REPO/releases/download/$TAG/obitobuff-$TARGET.tar.gz"
+
+# --- PATH management --------------------------------------------------------
+# Add a directory to PATH by writing an idempotent marker block into the
+# user's shell rc files (works on Linux, macOS, VPS, and Windows Git Bash /
+# MSYS2 / Cygwin). Re-running install.sh rewrites the path inside the existing
+# block, so moving BIN_DIR later (or upgrading) updates it instead of stacking
+# duplicates. Set OBITOBUFF_NO_PATH=1 to skip this entirely.
+
+add_path_entry() {
+  local bin_dir="$1" rc_file="$2" head="# >>> obitobuff >>>" tail="# <<< obitobuff <<<"
+  if [ -f "$rc_file" ] && grep -qF "$head" "$rc_file"; then
+    sed -i.bak "/$head/,/$tail/ s|^export PATH=.*|export PATH=\"$bin_dir:\$PATH\"|" "$rc_file"
+    rm -f "$rc_file.bak"
+  else
+    printf '\n%s\n# Add Obitobuff CLI to PATH (managed by install.sh)\nexport PATH="%s:$PATH"\n%s\n' "$head" "$bin_dir" "$tail" >> "$rc_file"
+  fi
+}
+
+add_bin_dir_to_path() {
+  local bin_dir="$1"
+  if [ -n "${OBITOBUFF_NO_PATH:-}" ]; then
+    echo "   ℹ️  PATH not modified (OBITOBUFF_NO_PATH is set)."
+    return 0
+  fi
+  if [ -z "$HOME" ]; then
+    echo "   ℹ️  \$HOME is empty; could not add to PATH. Add $bin_dir to your PATH manually."
+    return 0
+  fi
+  case ":$PATH:" in
+    *":$bin_dir:"*)
+      echo "   ✓ $bin_dir is already on PATH."
+      return 0
+      ;;
+  esac
+
+  local rc_files=() f
+  for f in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+    [ -f "$f" ] && rc_files+=("$f")
+  done
+  if [ "${#rc_files[@]}" -eq 0 ]; then
+    case "${SHELL##*/}" in
+      zsh) rc_files+=("$HOME/.zshrc") ;;
+      *)   rc_files+=("$HOME/.bashrc") ;;
+    esac
+  fi
+
+  for f in "${rc_files[@]}"; do
+    add_path_entry "$bin_dir" "$f"
+    echo "   ➕ Added $bin_dir to PATH in $f"
+  done
+  echo "   Restart your shell (or run 'source ~/.bashrc') to use 'obitobuff'."
+}
 
 # --- Binary-only mode (no Node.js required, no auto-update) -----------------
 if [ "$MODE" = "binary" ]; then
@@ -90,6 +121,7 @@ if [ "$MODE" = "binary" ]; then
   [ "$BIN_NAME" = "obitobuff" ] && chmod +x "$BIN_DIR/$BIN_NAME" 2>/dev/null || true
   echo ""
   echo "✅ Obitobuff $VERSION installed to $BIN_DIR/$BIN_NAME (binary only)."
+  add_bin_dir_to_path "$BIN_DIR"
   echo "   Run '$BIN_NAME' to start. This install does not auto-update —"
   echo "   re-run this script to upgrade, or use INSTALL_MODE=launcher for"
   echo "   automatic updates (requires Node.js ≥ 16)."
@@ -114,7 +146,10 @@ command -v npm >/dev/null 2>&1 || {
 LAUNCHER_URL="https://github.com/$REPO/releases/download/$TAG/obitobuff-launcher-$VERSION.tgz"
 
 echo "Installing Obitobuff launcher $VERSION..."
-npm install -g "$LAUNCHER_URL"
+# npm 12+ refuses to fetch remote tarballs unless allow-remote is enabled
+# (EALLOWREMOTE); --allow-remote=all restores that for this install and is
+# silently ignored by older npm versions.
+npm install -g --allow-remote=all "$LAUNCHER_URL"
 
 echo ""
 echo "✅ Obitobuff $VERSION installed."
@@ -122,4 +157,3 @@ echo "   Run 'obitobuff' to start — the CLI binary is downloaded on first laun
 echo "   and auto-updates from GitHub releases on every launch."
 echo ""
 echo "   Windows note: the same command works from PowerShell or Git Bash."
-echo "   Android note: use Termux + proot-distro (see docs/platforms.md)."

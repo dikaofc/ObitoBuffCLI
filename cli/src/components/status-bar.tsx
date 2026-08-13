@@ -1,4 +1,5 @@
 import { getObitobuffModel } from '@codebuff/common/constants/obitobuff-models'
+import { getLocalModelOptions } from '@codebuff/common/config/local-config'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -8,6 +9,8 @@ import { ShimmerText } from './shimmer-text'
 
 import { useObitobuffSessionProgress } from '../hooks/use-obitobuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
+import { getSelectedObitobuffModel } from '../state/obitobuff-model-store'
+import { IS_LOCAL_MODE } from '../utils/constants'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import {
   OBITOBUFF_COUNTDOWN_VISIBLE_MS,
@@ -164,6 +167,15 @@ export const StatusBar = ({
         return null
 
       case 'idle':
+        // Local-only Obitobuff: show the configured provider model instead of
+        // hosted catalog/session text (DeepSeek V4 Flash · unlimited, …).
+        if (IS_LOCAL_MODE) {
+          const localModel = getLocalModelOptions().find(
+            (option) => option.id === getSelectedObitobuffModel(),
+          )
+          if (!localModel) return null
+          return <span fg={theme.secondary}>{localModel.name}</span>
+        }
         if (sessionProgress !== null) {
           const isUrgent =
             sessionProgress.remainingMs < OBITOBUFF_COUNTDOWN_VISIBLE_MS

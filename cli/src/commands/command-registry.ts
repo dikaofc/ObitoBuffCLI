@@ -187,6 +187,10 @@ const OBITOBUFF_REMOVED_COMMANDS = new Set([
   'image',
   'publish',
   'gpt-5-agent',
+  // Obitobuff is local-only: there is no account to log in/out of, and
+  // logout would POST to the hosted backend.
+  'login',
+  'logout',
 ])
 
 const OBITOBUFF_ONLY_COMMANDS = new Set([

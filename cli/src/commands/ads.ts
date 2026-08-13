@@ -1,5 +1,5 @@
 import { useChatStore } from '../state/chat-store'
-import { IS_OBITOBUFF } from '../utils/constants'
+import { IS_LOCAL_MODE, IS_OBITOBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
 import { saveSettings, loadSettings } from '../utils/settings'
@@ -36,6 +36,9 @@ export const handleAdsDisable = (): {
 }
 
 export const getAdsEnabled = (): boolean => {
+  // Local-only Obitobuff never shows or fetches ads: there is no ad-funded
+  // backend to support. IS_LOCAL_MODE is compile-time true in Obitobuff builds.
+  if (IS_LOCAL_MODE) return false
   if (IS_OBITOBUFF) return true
 
   // Codebuff LITE is a paid mode now, so use the normal saved setting.

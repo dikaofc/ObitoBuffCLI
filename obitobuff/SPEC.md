@@ -1,6 +1,6 @@
 # Obitobuff Spec
 
-Obitobuff is a free-only variant of the Codebuff CLI, distributed as a separate npm package (`obitobuff`). It reuses the entire `cli/` package but builds with a compile-time flag that strips out paid features, subscription logic, credits display, and mode switching — leaving only the FREE mode experience.
+Obitobuff is a **local-only** variant of the Codebuff CLI, distributed as a separate npm package (`obitobuff`). It reuses the entire `cli/` package but builds with a compile-time flag (`OBITOBUFF_MODE`) that forces local mode: the CLI runs entirely on providers from `obitobuff.config.json` / `config.json` — **no obitobuff.com backend, no login/auth/sessions, no ads, no telemetry**. `IS_LOCAL_MODE` is always `true` in Obitobuff builds (see `cli/src/utils/constants.ts`), so every hosted-mode gate (login modal, session poller, landing screen, ads, usage, engagement) folds away at compile time, and the CLI refuses to start without a configured provider.
 
 ---
 
@@ -34,8 +34,8 @@ This enables dead-code elimination in production builds — all `if (!IS_OBITOBU
 | App header text       | "Codebuff will run commands on your behalf to help you build." | "Obitobuff will run commands on your behalf to help you build." |
 | ASCII logo            | `CODEBUFF` block letters                                       | `OBITOBUFF` block letters (new logo)                            |
 | Description           | "AI coding agent"                                              | "Free AI coding assistant"                                     |
-| Homepage              | codebuff.com                                                   | codebuff.com/free (or same)                                    |
-| `WEBSITE_URL` usage   | Points to codebuff.com                                         | Same (login, feedback, etc. stay on codebuff.com)              |
+| Homepage              | codebuff.com                                                   | obitobuff.com                                                  |
+| `WEBSITE_URL` usage   | Points to codebuff.com                                         | Not used — no login/feedback flows exist in local-only builds  |
 
 ### Files to modify (conditional on `IS_OBITOBUFF`)
 
@@ -274,7 +274,7 @@ const defineFlags = [
 
 These features work identically in Obitobuff:
 
-- **Authentication** — Login/logout flow, API key storage
+- **Authentication** — **Removed**: Obitobuff has no account system (`obitobuff login`, `/login` and `/logout` are gone; the CLI exits with a local-only message)
 - **Chat** — Message history, streaming, agent spawning
 - **File mentions** (`@files`) — Browse and attach files
 - **Agent mentions** (`@agents`) — Use available agents (free-tier agents only)

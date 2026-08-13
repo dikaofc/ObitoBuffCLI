@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
 describe('obitobuff command aliases', () => {
-  test('/model aliases /end-session in obitobuff', () => {
+  // Obitobuff is local-only: there is no server session to end, so
+  // /end-session (and its `model` alias) is gone and /model is the standalone
+  // provider-switcher command.
+  test('/model is a standalone command in obitobuff (local-only)', () => {
     const slashCommandsUrl = new URL(
       '../../data/slash-commands.ts',
       import.meta.url,
@@ -20,15 +23,14 @@ describe('obitobuff command aliases', () => {
           import { findCommand } from ${JSON.stringify(commandRegistryUrl)}
 
           const endSession = SLASH_COMMANDS.find((cmd) => cmd.id === 'end-session')
-          if (!endSession) throw new Error('end-session slash command missing')
-          if (!endSession.aliases?.includes('model')) {
-            throw new Error('end-session slash command is missing model alias')
+          if (endSession) {
+            throw new Error('end-session slash command must be removed in local-only obitobuff')
           }
 
           const modelCommand = findCommand('model')
-          if (!modelCommand) throw new Error('model command alias missing')
-          if (modelCommand.name !== 'end-session') {
-            throw new Error('model alias did not resolve to end-session')
+          if (!modelCommand) throw new Error('model command missing')
+          if (modelCommand.name !== 'model') {
+            throw new Error('model command should resolve to the standalone /model command')
           }
         `,
       ],

@@ -47,6 +47,30 @@ export class ObitobuffSession {
       'utf-8',
     )
 
+    // Obitobuff is local-only: it refuses to start without a config with at
+    // least one provider + model, so bootstrap one. Set OPENROUTER_API_KEY in
+    // the environment to make real chat work; without it the CLI still boots
+    // (sends will fail against the dummy provider).
+    fs.writeFileSync(
+      path.join(tmpDir, 'obitobuff.config.json'),
+      JSON.stringify(
+        {
+          defaultModel: 'openai/gpt-5.3',
+          providers: {
+            openrouter: {
+              baseUrl: 'https://openrouter.ai/api/v1',
+              api: 'openai-completions',
+              apiKey: 'sk-${OPENROUTER_API_KEY}',
+              models: [{ id: 'openai/gpt-5.3', name: 'GPT-5.3' }],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    )
+
     // Write any initial files before starting the binary
     if (options?.initialFiles) {
       for (const [relativePath, content] of Object.entries(options.initialFiles)) {

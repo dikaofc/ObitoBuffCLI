@@ -11,6 +11,7 @@ import {
 import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
 
+import { IS_OBITOBUFF } from './constants'
 import { getOrCreatePersistentAnonymousId } from './anonymous-id'
 import { enqueueClientLog as defaultEnqueueClientLog } from './log-shipper'
 
@@ -145,6 +146,14 @@ function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
 export function initAnalytics() {
   const { env, isProd, createClient, generateAnonymousId } = resolveDeps()
   client = undefined
+
+  // Obitobuff is local-only: it never talks to analytics or log backends.
+  // Marking the init failed makes trackEvent/identifyUser no-ops instead of
+  // throwing in production.
+  if (IS_OBITOBUFF) {
+    initializationState = 'failed'
+    return
+  }
 
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
     initializationState = 'failed'

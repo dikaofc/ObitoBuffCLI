@@ -28,8 +28,10 @@ permissions:
 env:
   OBITOBUFF_MODE: 'true'
   NEXT_PUBLIC_CB_ENVIRONMENT: prod
-  NEXT_PUBLIC_CODEBUFF_APP_URL: https://codebuff.com
-  NEXT_PUBLIC_SUPPORT_EMAIL: support@codebuff.com
+  # Obitobuff is local-only; these only surface in error/attribution strings,
+  # so point them at obitobuff.com instead of the upstream Codebuff site.
+  NEXT_PUBLIC_CODEBUFF_APP_URL: https://obitobuff.com
+  NEXT_PUBLIC_SUPPORT_EMAIL: support@obitobuff.com
   NEXT_PUBLIC_POSTHOG_API_KEY: 'phc_placeholder'
   NEXT_PUBLIC_POSTHOG_HOST_URL: https://us.i.posthog.com
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_placeholder'
