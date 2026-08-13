@@ -176,6 +176,48 @@ check_path_idempotent() {
 check_path_added
 check_path_idempotent
 
+# --- Global config bootstrap (sandboxed HOME, no network) ------------------
+check_config_created() {
+  local home="$tmp/cfg-home"
+  rm -rf "$home"
+  mkdir -p "$home"
+  rm -f "$CURL_URL_LOG"
+  if ! HOME="$home" FAKE_UNAME_S="Linux" FAKE_UNAME_M="x86_64" \
+    bash "$INSTALL_SH" >/dev/null 2>&1; then
+    echo "FAIL config-created: install.sh exited non-zero"
+    failures=$((failures + 1))
+    return
+  fi
+  if [ -f "$home/.obitobuff/config.json" ] && \
+    grep -q '"openrouter"' "$home/.obitobuff/config.json"; then
+    echo "PASS config-created -> ~/.obitobuff/config.json written with OpenRouter template"
+  else
+    echo "FAIL config-created: ~/.obitobuff/config.json missing or incomplete"
+    failures=$((failures + 1))
+  fi
+}
+
+check_config_idempotent() {
+  local home="$tmp/cfg-home-2"
+  rm -rf "$home"
+  mkdir -p "$home"
+  HOME="$home" FAKE_UNAME_S="Linux" FAKE_UNAME_M="x86_64" \
+    bash "$INSTALL_SH" >/dev/null 2>&1
+  # User edits the config; a reinstall must not clobber it.
+  sed -i 's/sk-or-v1-REPLACE_WITH_YOUR_KEY/sk-or-v1-mycustomkey/' "$home/.obitobuff/config.json"
+  HOME="$home" FAKE_UNAME_S="Linux" FAKE_UNAME_M="x86_64" \
+    bash "$INSTALL_SH" >/dev/null 2>&1
+  if grep -q 'sk-or-v1-mycustomkey' "$home/.obitobuff/config.json"; then
+    echo "PASS config-idempotent -> reinstall keeps edited config untouched"
+  else
+    echo "FAIL config-idempotent: reinstall overwrote the edited config"
+    failures=$((failures + 1))
+  fi
+}
+
+check_config_created
+check_config_idempotent
+
 if [ "$failures" -gt 0 ]; then
   echo ""
   echo "$failures check(s) failed"

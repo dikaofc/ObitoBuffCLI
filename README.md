@@ -44,8 +44,10 @@ version. To point the launcher at a different repo, set `OBITOBUFF_UPDATE_REPO`.
 ## Quick start — local mode (recommended)
 
 Run Obitobuff in any project from your terminal, entirely on your own providers.
-The only setup is a config file: save one of the ready-to-copy examples below as
-`obitobuff.config.json` in your project, then run `obitobuff`.
+The only setup is a config file. `install.sh` already creates a global
+`~/.obitobuff/config.json` (OpenRouter template) on first install — paste your
+API key into it and run `obitobuff`. To start from scratch instead, save one of
+the ready-to-copy examples below as `obitobuff.config.json` in your project.
 
 **Ollama — free, runs locally, no API key:**
 

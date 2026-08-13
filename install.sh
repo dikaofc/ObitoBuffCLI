@@ -106,6 +106,48 @@ add_bin_dir_to_path() {
   echo "   Restart your shell (or run 'source ~/.bashrc') to use 'obitobuff'."
 }
 
+# --- Global config bootstrap -------------------------------------------------
+# Obitobuff is local-only: it talks to your own OpenAI-compatible endpoints
+# from a config file. Create a global config (~/.obitobuff/config.json) with a
+# ready-to-edit OpenRouter template so the CLI starts without extra setup.
+# Idempotent: an existing config is never overwritten. Set OBITOBUFF_NO_CONFIG=1
+# to skip this entirely.
+
+ensure_global_config() {
+  local cfg_dir="$HOME/.obitobuff"
+  local cfg_file="$cfg_dir/config.json"
+  if [ -n "${OBITOBUFF_NO_CONFIG:-}" ]; then
+    echo "   ℹ️  Global config not created (OBITOBUFF_NO_CONFIG is set)."
+    return 0
+  fi
+  if [ -f "$cfg_file" ]; then
+    echo "   ✓ Global config already exists at $cfg_file (untouched)."
+    return 0
+  fi
+  mkdir -p "$cfg_dir"
+  cat > "$cfg_file" <<EOF
+{
+  "//": "Obitobuff global config (local-only: no account, no login, no ads).",
+  "//2": "Get a key at https://openrouter.ai/keys, then edit apiKey below.",
+  "defaultModel": "openai/gpt-5.6-luna",
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openrouter",
+      "apiKey": "sk-or-v1-REPLACE_WITH_YOUR_KEY",
+      "models": [
+        { "id": "openai/gpt-5.6-luna", "name": "GPT-5.6 Luna" },
+        { "id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4" },
+        { "id": "deepseek/deepseek-v4-flash", "name": "DeepSeek V4 Flash" }
+      ]
+    }
+  }
+}
+EOF
+  echo "   ➕ Created global config at $cfg_file"
+  echo "   → Edit it to set your OpenRouter API key (or add Ollama / other providers)."
+}
+
 # --- Binary-only mode (no Node.js required, no auto-update) -----------------
 if [ "$MODE" = "binary" ]; then
   command -v curl >/dev/null 2>&1 || { echo "❌ curl is required." >&2; exit 1; }
@@ -122,6 +164,7 @@ if [ "$MODE" = "binary" ]; then
   echo ""
   echo "✅ Obitobuff $VERSION installed to $BIN_DIR/$BIN_NAME (binary only)."
   add_bin_dir_to_path "$BIN_DIR"
+  ensure_global_config
   echo "   Run '$BIN_NAME' to start. This install does not auto-update —"
   echo "   re-run this script to upgrade, or use INSTALL_MODE=launcher for"
   echo "   automatic updates (requires Node.js ≥ 16)."
@@ -153,6 +196,7 @@ npm install -g --allow-remote=all "$LAUNCHER_URL"
 
 echo ""
 echo "✅ Obitobuff $VERSION installed."
+ensure_global_config
 echo "   Run 'obitobuff' to start — the CLI binary is downloaded on first launch"
 echo "   and auto-updates from GitHub releases on every launch."
 echo ""

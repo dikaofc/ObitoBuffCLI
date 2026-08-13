@@ -40,6 +40,11 @@ idempotent — re-running install.sh updates the path in place instead of
 stacking duplicates — and you only need to restart your shell (or
 `source ~/.bashrc`) once. Set `OBITOBUFF_NO_PATH=1` to skip PATH editing.
 
+Both modes also create a ready-to-edit **global config** at
+`~/.obitobuff/config.json` (OpenRouter template with a placeholder API key) on
+first install, so the CLI starts as soon as you paste in a key. Existing
+configs are never overwritten; set `OBITOBUFF_NO_CONFIG=1` to skip.
+
 On Arch/Manjaro the only prerequisite is `sudo pacman -S nodejs npm`; the
 launcher works identically to other distributions.
 
